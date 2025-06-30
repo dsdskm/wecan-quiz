@@ -20,13 +20,8 @@ app.use(cors()); // CORS 미들웨어 추가
 app.use(express.json()); // JSON 요청 본문 파싱을 위한 미들웨어 추가
 
 app.get('/', (req, res) => {
-  // API Key 인증 미들웨어는 이 라우트 핸들러 이전에 적용됩니다.
-  // Rate Limiter는 이 라우트 핸들러 이전에 적용됩니다.
-
-  // Rate Limiter는 이 라우트 핸들러 이전에 적용됩니다.
-  const name = process.env.NAME;
   // addVersionToFirestore()
-  res.send(`${name}!`);
+  res.send(`HELLO WECAN-SHOW!`);
 });
 
 // Root 경로에 적용할 Rate Limiter
