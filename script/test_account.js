@@ -57,7 +57,7 @@ async function deleteAccount(email) {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': API_KEY,
-      },      
+      },
     });
     console.log(`response`, response.statusText)
     // const data = await response.json();
@@ -79,21 +79,23 @@ async function loginAccount(userId, password) {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': API_KEY,
+        'Content-Type': 'application/json'
       },
       body: body,
     });
+    console.log(`response`, response.status)
     const data = await response.json();
-    console.log('Login API Response:', data);
+    console.log('API Response:', data);
   } catch (error) {
-    console.error('Error calling Login API:', error);
+    console.error('Error calling Login API:', error.message);
   }
 }
 
-async function logoutAccount(token) {
+async function logoutAccount(userId,token) {
   const url = API_URL + '/accounts/logout';
-  console.log('logoutAccount token', token);
+  const body = JSON.stringify({
+    userId: userId
+  });
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -101,7 +103,7 @@ async function logoutAccount(token) {
         'Content-Type': 'application/json',
         'x-api-key': API_KEY,
         'Authorization': `Bearer ${token}`,
-      },
+      }, body: body
     });
     console.log(`response`, response.statusText)
     // const data = await response.json();
@@ -132,7 +134,7 @@ async function getAllAccountsTest() {
 // base()
 // registerAccount('dsdskm@gmail.com', '123456');
 // registerAccount('dsdskm2@gmail.com', '123456');
-loginAccount('dsdskm@gmail.com', '123456');
+// loginAccount('dsdskm@gmail.com', '123456');
 // deleteAccount('dsdskm@gmail.com');
-// logoutAccount('dsdskm@gmail.com'); 
+logoutAccount('dsdskm@gmail.com',"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkc2Rza21AZ21haWwuY29tIiwiaWF0IjoxNzUxMjY2MjM4LCJleHAiOjE3NTEyNjk4Mzh9.gG3zBtZk5l9Anj_c_gcOmsspcDAolB2jkVDOFwBZ4aQ");
 // getAllAccountsTest();

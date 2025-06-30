@@ -2,7 +2,7 @@
 
 echo "Cloud Build 실행 시작..."
 
-gcloud builds submit --config ../cloudbuild.yaml ..
+gcloud builds submit --config ./cloudbuild.yaml .
 
 if [ $? -eq 0 ]; then
   echo "Cloud Build 실행 성공!"

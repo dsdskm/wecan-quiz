@@ -9,8 +9,7 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors")); // cors 패키지 추가
 const express_rate_limit_1 = __importDefault(require("express-rate-limit")); // rateLimit 함수 import
 const accountsRoutes_1 = __importDefault(require("@/routes/accountsRoutes")); // accounts 라우터 import
-// import quizzesRouter from '@/routes/quizzesRoutes'; // 퀴즈 라우터 import
-// import showsRouter from '@/routes/showsRoutes'; // 쇼 라우터 import
+const showsRoutes_1 = __importDefault(require("@/routes/showsRoutes")); // 쇼 라우터 import
 const accountsRoutes_2 = require("@/routes/accountsRoutes"); // authenticate 및 apiKeyAuth 미들웨어 import
 const Logger_1 = __importDefault(require("./utils/Logger"));
 const app = (0, express_1.default)();
@@ -26,16 +25,13 @@ const rootRateLimiter = (0, express_rate_limit_1.default)({
     max: 100, // IP당 최대 60개 요청 허용
     message: 'Too many requests from this IP, please try again after a minute',
 });
-// 모든 API 엔드포인트에 API Key 인증 미들웨어 적용
-app.use(accountsRoutes_2.apiKeyAuth);
 // Root 경로에 Rate Limiting 미들웨어 적용
 // app.use('/', rootRateLimiter);
 // Account 관련 라우터 사용
 app.use('/accounts', accountsRoutes_1.default);
 // Quiz 관련 라우터 사용
-// app.use('/quizzes', authenticate, quizzesRouter);
 // Show 관련 라우터 사용
-// app.use('/shows', authenticate, showsRouter);
+app.use('/shows', accountsRoutes_2.authenticate, showsRoutes_1.default);
 const port = parseInt(process.env.PORT || '3000');
 app.listen(port, () => {
     Logger_1.default.info(`listening on port ${port}`);

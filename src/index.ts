@@ -7,9 +7,9 @@ import cors from 'cors'; // cors 패키지 추가
 import rateLimit from 'express-rate-limit'; // rateLimit 함수 import
 
 import accountsRouter from '@/routes/accountsRoutes'; // accounts 라우터 import
-// import quizzesRouter from '@/routes/quizzesRoutes'; // 퀴즈 라우터 import
-// import showsRouter from '@/routes/showsRoutes'; // 쇼 라우터 import
-import { authenticate, apiKeyAuth } from '@/routes/accountsRoutes'; // authenticate 및 apiKeyAuth 미들웨어 import
+
+import showsRouter from '@/routes/showsRoutes'; // 쇼 라우터 import
+import { authenticate } from '@/routes/accountsRoutes'; // authenticate 및 apiKeyAuth 미들웨어 import
 import Logger from './utils/Logger';
 
 
@@ -31,9 +31,6 @@ const rootRateLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again after a minute',
 });
 
-// 모든 API 엔드포인트에 API Key 인증 미들웨어 적용
-app.use(apiKeyAuth);
-
 // Root 경로에 Rate Limiting 미들웨어 적용
 // app.use('/', rootRateLimiter);
 
@@ -41,10 +38,10 @@ app.use(apiKeyAuth);
 app.use('/accounts', accountsRouter);
 
 // Quiz 관련 라우터 사용
-// app.use('/quizzes', authenticate, quizzesRouter);
+
 
 // Show 관련 라우터 사용
-// app.use('/shows', authenticate, showsRouter);
+app.use('/shows', authenticate, showsRouter);
 
 const port = parseInt(process.env.PORT || '3000');
 app.listen(port, () => {
