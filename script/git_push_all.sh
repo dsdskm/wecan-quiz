@@ -4,7 +4,7 @@
 COMMIT_MESSAGE="자동 커밋 및 푸시"
 
 # 푸시할 브랜치 이름을 여기에 작성하세요.
-BRANCH_NAME="[YOUR_BRANCH_NAME]"
+BRANCH_NAME="server_app_master"
 
 git add .
 if [ $? -eq 0 ]; then
