@@ -75,7 +75,7 @@ export const loginUser = async (loginData: any) => {
 
   // 로그인 성공 시 토큰 생성 등 처리 (예시)
   const token = uuidv4(); // 임시 토큰 생성
-
+  Logger.info(`Generated token: "${token}"`);
   Logger.info(`User logged in: ${userId}`);
 
   // 토큰 및 사용자 정보 반환

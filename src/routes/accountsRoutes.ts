@@ -80,6 +80,7 @@ router.post('/login', apiKeyAuth, validate(loginSchema), async (req: Request, re
     // accountService의 loginUser 함수 호출
     const loginResult = await accountService.loginUser({ userId, password });
     validTokens.push(loginResult.token); // 로그인 성공 시 임시 토큰 저장
+    Logger.info(`loginResult ${loginResult}`)
     res.status(200).json(loginResult);
   } catch (error: any) {
     Logger.error(`Account login failed: ${error.message}`);

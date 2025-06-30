@@ -22,3 +22,6 @@ if [ $? -eq 0 ]; then
 else
   echo "Git 작업 실패: add 실패"
 fi
+
+# git push
+# git push -u origin server_app_master

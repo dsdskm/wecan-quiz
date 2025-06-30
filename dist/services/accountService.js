@@ -84,6 +84,7 @@ const loginUser = (loginData) => __awaiter(void 0, void 0, void 0, function* () 
     }
     // 로그인 성공 시 토큰 생성 등 처리 (예시)
     const token = (0, uuid_1.v4)(); // 임시 토큰 생성
+    Logger_1.default.info(`Generated token: "${token}"`);
     Logger_1.default.info(`User logged in: ${userId}`);
     // 토큰 및 사용자 정보 반환
     return { token, userId: account.userId, username: account.username };

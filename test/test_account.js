@@ -129,10 +129,10 @@ async function getAllAccountsTest() {
   }
 }
 // Example usage:
-base()
+// base()
 // registerAccount('dsdskm@gmail.com', '123456');
 // registerAccount('dsdskm2@gmail.com', '123456');
-// loginAccount('dsdskm@gmail.com', '123456');
+loginAccount('dsdskm@gmail.com', '123456');
 // deleteAccount('dsdskm@gmail.com');
 // logoutAccount('dsdskm@gmail.com'); 
-getAllAccountsTest();
+// getAllAccountsTest();

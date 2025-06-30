@@ -104,6 +104,7 @@ router.post('/login', exports.apiKeyAuth, validate(loginSchema), (req, res) => _
         // accountService의 loginUser 함수 호출
         const loginResult = yield accountService.loginUser({ userId, password });
         validTokens.push(loginResult.token); // 로그인 성공 시 임시 토큰 저장
+        Logger_1.default.info(`loginResult ${loginResult}`);
         res.status(200).json(loginResult);
     }
     catch (error) {
