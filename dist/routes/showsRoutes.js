@@ -16,7 +16,9 @@ const express_1 = require("express");
 const joi_1 = __importDefault(require("joi"));
 const showService_1 = require("../services/showService"); // Assuming the service file is in ../services
 const Logger_1 = __importDefault(require("@/utils/Logger"));
+const multer_1 = __importDefault(require("multer")); // Import multer
 const router = (0, express_1.Router)();
+const auth_1 = require("../middleware/auth");
 // Joi schema for Quiz structure (assuming it matches Quiz.ts)
 const quizSchema = joi_1.default.object({
     question: joi_1.default.string().required(),
@@ -37,7 +39,7 @@ const createShowSchema = joi_1.default.object({
     // Detailed description of the show
     details: joi_1.default.string().required(),
     // Optional URL for a background image
-    backgroundImageUrl: joi_1.default.string().optional(),
+    backgroundImageUrl: joi_1.default.string().allow(null, '').optional(),
     quizzes: joi_1.default.array().items(quizSchema).min(0).required(), // 빈 배열도 허용
     // Status of the show (waiting, inprogress, paused, completed)
     status: joi_1.default.string().valid('waiting', 'inprogress', 'paused', 'completed').required(),
@@ -48,10 +50,25 @@ const createShowSchema = joi_1.default.object({
 const updateShowSchema = joi_1.default.object({
     title: joi_1.default.string().optional(),
     details: joi_1.default.string().optional(),
-    backgroundImageUrl: joi_1.default.string().optional(),
+    backgroundImageUrl: joi_1.default.string().allow(null, '').optional(),
     status: joi_1.default.string().valid('waiting', 'inprogress', 'paused', 'completed').optional(),
     url: joi_1.default.string().uri().optional(),
     // quizzes, createdAt, startTime, endTime, updatedAt are not updated directly via this route
+});
+// Configure multer for file uploads
+const storage = multer_1.default.memoryStorage(); // Store files in memory
+const upload = (0, multer_1.default)({
+    storage: storage,
+    limits: {
+        fileSize: 5 * 1024 * 1024, // Limit file size to 5MB (adjust as needed)
+    },
+    fileFilter: (req, file, cb) => {
+        // Accept only image files
+        if (!file.mimetype.startsWith('image/')) {
+            return cb(new Error('Only image files are allowed'), false);
+        }
+        cb(null, true);
+    },
 });
 // GET /shows - get all shows
 router.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -83,10 +100,10 @@ router.post('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         Logger_1.default.info(`POST /shows received body: ${JSON.stringify(req.body)}`);
         const { error, value } = createShowSchema.validate(req.body);
-        if (error) {
-            Logger_1.default.error("Joi validation error:", error.details[0].message);
-            return res.status(400).json({ error: error.details[0].message });
-        }
+        // if (error) {
+        //   Logger.error("Joi validation error:", error.details[0].message);
+        //   return res.status(400).json({ error: error.details[0].message });
+        // }
         Logger_1.default.info(`POST /shows Joi validated value: ${JSON.stringify(value)}`);
         const newShowData = Object.assign(Object.assign({}, value), { createdAt: new Date(), updatedAt: new Date() });
         const newShow = yield showService_1.showService.createShow(newShowData);
@@ -165,6 +182,29 @@ router.delete('/:showId/quizzes/:quizId', (req, res) => __awaiter(void 0, void 0
     }
     catch (error) {
         res.status(500).json({ error: error.message });
+    }
+}));
+// POST /shows/:id/upload-background-image - Upload background image for a show
+router.post('/:id/upload-background-image', auth_1.authenticateToken, upload.single('backgroundImage'), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        Logger_1.default.info("upload-background-image");
+        const showId = req.params.id;
+        const file = req.file; // Uploaded file will be in req.file
+        if (!file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+        // Call the service function to upload the image and update the show
+        const updatedShow = yield showService_1.showService.uploadBackgroundImage(showId, file);
+        if (updatedShow) {
+            res.json(updatedShow);
+        }
+        else {
+            res.status(404).json({ message: 'Show not found' });
+        }
+    }
+    catch (error) {
+        console.error('Error uploading background image:', error);
+        res.status(500).json({ message: error.message });
     }
 }));
 exports.default = router;

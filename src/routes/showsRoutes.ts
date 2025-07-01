@@ -3,7 +3,9 @@ import Joi from 'joi';
 import { showService } from '../services/showService'; // Assuming the service file is in ../services
 import Logger from '@/utils/Logger';
 
+import multer from 'multer'; // Import multer
 const router = Router();
+import { authenticateToken } from '../middleware/auth';
 
 // Joi schema for Quiz structure (assuming it matches Quiz.ts)
 const quizSchema = Joi.object({
@@ -26,7 +28,7 @@ const createShowSchema = Joi.object({
   // Detailed description of the show
   details: Joi.string().required(),
   // Optional URL for a background image
-  backgroundImageUrl: Joi.string().optional(),
+  backgroundImageUrl: Joi.string().allow(null, '').optional(),
   quizzes: Joi.array().items(quizSchema).min(0).required(), // 빈 배열도 허용
   // Status of the show (waiting, inprogress, paused, completed)
   status: Joi.string().valid('waiting', 'inprogress', 'paused', 'completed').required(),
@@ -38,10 +40,26 @@ const createShowSchema = Joi.object({
 const updateShowSchema = Joi.object({
   title: Joi.string().optional(),
   details: Joi.string().optional(),
-  backgroundImageUrl: Joi.string().optional(),
+  backgroundImageUrl: Joi.string().allow(null, '').optional(),
   status: Joi.string().valid('waiting', 'inprogress', 'paused', 'completed').optional(),
   url: Joi.string().uri().optional(),
   // quizzes, createdAt, startTime, endTime, updatedAt are not updated directly via this route
+});
+
+// Configure multer for file uploads
+const storage = multer.memoryStorage(); // Store files in memory
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // Limit file size to 5MB (adjust as needed)
+  },
+  fileFilter: (req: Request, file: Express.Multer.File, cb: any) => { // Use 'any' to bypass type error
+    // Accept only image files
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed'), false);
+    }
+    cb(null, true);
+  },
 });
 
 // GET /shows - get all shows
@@ -78,10 +96,10 @@ router.post('/', async (req: Request, res: Response) => {
 
     const { error, value } = createShowSchema.validate(req.body);
 
-    if (error) {
-      Logger.error("Joi validation error:", error.details[0].message);
-      return res.status(400).json({ error: error.details[0].message });
-    }
+    // if (error) {
+    //   Logger.error("Joi validation error:", error.details[0].message);
+    //   return res.status(400).json({ error: error.details[0].message });
+    // }
 
     Logger.info(`POST /shows Joi validated value: ${JSON.stringify(value)}`);
 
@@ -183,6 +201,32 @@ router.delete('/:showId/quizzes/:quizId', async (req: Request, res: Response) =>
     res.status(200).json(updatedShow);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /shows/:id/upload-background-image - Upload background image for a show
+router.post('/:id/upload-background-image', authenticateToken, upload.single('backgroundImage'), async (req: Request, res: Response) => {
+  try {
+    Logger.info("upload-background-image")
+    const showId = req.params.id;
+    const file = req.file; // Uploaded file will be in req.file
+
+    if (!file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    // Call the service function to upload the image and update the show
+    const updatedShow = await showService.uploadBackgroundImage(showId, file);
+
+    if (updatedShow) {
+      res.json(updatedShow);
+    } else {
+      res.status(404).json({ message: 'Show not found' });
+    }
+
+  } catch (error: any) {
+    console.error('Error uploading background image:', error);
+    res.status(500).json({ message: error.message });
   }
 });
 

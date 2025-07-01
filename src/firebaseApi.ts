@@ -3,6 +3,7 @@ import { Show } from './types/Show';
 import { Quiz } from './types/Quiz';
 import { v4 as uuidv4 } from 'uuid';
 import Logger from './utils/Logger'; // Import Logger
+import { deleteFileFromStorageByUrl } from './utils/storage'; // Import file deletion function
 
 // Firestore 컬렉션 참조
 const showsCollection = db.collection('shows');
@@ -36,20 +37,23 @@ export async function getShowById(id: string): Promise<Show | undefined> {
 
 export async function createShow(showData: Partial<Show>): Promise<Show> {
   try {
-    // Firestore에서 문서 ID를 자동 생성하거나 showData에 제공된 ID 사용
-    const docRef = showData.id ? showsCollection.doc(showData.id) : showsCollection.doc();
-    const dataToSet = { ...showData, quizzes: showData.quizzes || [] }; // quizzes 배열 초기화 보장
+    // Firestore에 새로운 문서를 추가하고 자동 생성된 ID를 가진 DocumentReference를 얻습니다.
+    const docRef = await showsCollection.add(showData);
 
-    // Firestore에 데이터 설정 (merge: true로 기존 필드를 덮어쓰지 않고 업데이트)
-    await docRef.set(dataToSet, { merge: true });
+    // 생성된 문서의 자동 생성된 ID를 Show 데이터에 추가합니다.
+    // NOTE: showData가 Partial<Show> 타입이므로, 모든 필수 필드가 존재하지 않을 수 있습니다.
+    // Show 타입을 반환하려면 모든 필수 필드가 채워져야 합니다.
+    // 여기서는 Show 타입으로 캐스팅하지만, 실제 애플리케이션에서는 필수 필드 누락 시 유효성 검사 또는 오류 처리가 필요합니다.
+    const createdShowData: Show = {
+        id: docRef.id,
+        ...showData as Show, // Partial<Show>를 Show로 캐스팅 (필수 필드 누락 시 런타임 오류 가능성 있음)
+        quizzes: showData.quizzes || [] // Ensure quizzes is an array if not provided
+    };
 
-    // 생성된 문서 다시 조회하여 반환 (자동 생성된 ID 포함)
-    const createdShow = await docRef.get();
-    if (!createdShow.exists) {
-        throw new Error('Created show document not found');
-    }
-    return { id: createdShow.id, ...createdShow.data() as Show };
+    // Firestore 문서를 새로 생성된 ID와 함께 다시 업데이트하여 ID 필드를 저장합니다.
+    await docRef.set(createdShowData); // Set the document with the ID included
 
+    return createdShowData; // Return the created Show object with ID
   } catch (error) {
     Logger.error('Error creating show:', error);
     throw new Error('Failed to create show in Firestore');
@@ -84,15 +88,30 @@ export async function updateShow(id: string, showData: Partial<Show>): Promise<S
 
 export async function deleteShow(id: string): Promise<boolean> {
   try {
-    const docRef = showsCollection.doc(id);
-    const doc = await docRef.get();
+    const showRef = showsCollection.doc(id);
+    const showDoc = await showRef.get();
 
-    if (!doc.exists) {
+    if (!showDoc.exists) {
+      Logger.warn(`Show document with ID ${id} not found for deletion.`);
       return false; // Show not found
     }
 
+    const showData = showDoc.data() as Show;
+
+    // 배경 이미지 URL이 존재하는 경우 Storage에서 파일 삭제
+    if (showData.backgroundImageUrl) {
+      try {
+        await deleteFileFromStorageByUrl(showData.backgroundImageUrl);
+        Logger.info(`Deleted background image for show ID ${id}`);
+      } catch (storageError) {
+        // 파일 삭제 중 오류 발생 시 로그를 남기지만, Show 문서 삭제는 계속 진행
+        Logger.error(`Failed to delete background image for show ID ${id}:`, storageError);
+        // 여기서 오류를 다시 던질지, 아니면 무시하고 문서 삭제를 진행할지 결정해야 합니다.
+        // 일반적으로는 문서 삭제는 계속 진행하는 것이 좋습니다.
+      }
+    }
     // Firestore 문서 삭제
-    await docRef.delete();
+    await showRef.delete();
     return true; // Show deleted successfully
   } catch (error) {
     Logger.error(`Error deleting show ${id}:`, error);
