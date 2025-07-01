@@ -18,10 +18,11 @@ if (!bucketName) {
 // Initialize bucket after checking if bucketName is set
 const bucket = bucketName ? storage.bucket(bucketName) : null; // Handle case where bucketName is not set
 
+
 /**
  * Generates the public URL for a file in Firebase Storage.
  * @param bucketName The name of the storage bucket.
- * @param filePath The path to the file within the bucket.
+ * @param filePath The path to the file within the bucket (object name).
  * @returns The complete public URL for the file.
  */
 const generatePublicUrl = (bucketName: string, filePath: string): string => {
@@ -29,25 +30,48 @@ const generatePublicUrl = (bucketName: string, filePath: string): string => {
 };
 
 /**
- * Uploads a file buffer to Firebase Storage.
+ * Extracts the file path (object name) from a Firebase Storage public URL.
+ * @param fileUrl The public URL of the file.
+ * @param bucketName The name of the storage bucket.
+ * @returns The file path (object name) within the bucket, or null if the URL is invalid.
+ */
+const getFilePathFromUrl = (fileUrl: string, bucketName: string): string | null => {
+  try {
+    const url = new URL(fileUrl);
+    // Ensure the URL is a Google Storage URL and matches the bucket
+    if (url.hostname !== 'storage.googleapis.com' || !url.pathname.startsWith(`/${bucketName}/`)) {
+        console.error(`Invalid Storage URL format or bucket name mismatch: ${fileUrl}`);
+        return null;
+    }
+    // Extract the object name (file path) from the pathname
+    const objectName = url.pathname.substring(`/${bucketName}/`.length);
+    return objectName;
+  } catch (error) {
+    console.error(`Error parsing Storage URL ${fileUrl}:`, error);
+    return null;
+  }
+};
+
+
+/**
+ * Uploads a file buffer to a specified path in Firebase Storage.
  * @param fileBuffer The file buffer to upload.
- * @param originalname The original name of the file (to get the extension).
- * @param destinationPath The destination path within the storage bucket (e.g., 'show_backgrounds/').
+ * @param destinationPath The complete destination path within the storage bucket (including file name, e.g., 'images/users/user1/profile.jpg').
+ * @param contentType Optional. The content type of the file (e.g., 'image/jpeg').
  * @returns A promise that resolves with the public URL of the uploaded file.
  */
-export const uploadFileToStorage = async (fileBuffer: Buffer, originalname: string, destinationPath: string): Promise<string> => {
+export const uploadFile = async (fileBuffer: Buffer, destinationPath: string, contentType?: string): Promise<string> => {
   if (!bucket) {
-    throw new Error("Firebase Storage bucket name is not configured.");
+    throw new Error("Firebase Storage bucket is not configured.");
+  }
+  if (!destinationPath) {
+      throw new Error("Destination path for file upload cannot be empty.");
   }
 
-  // Generate a unique file name using timestamp and original extension
-  const fileName = `${Date.now()}${path.extname(originalname).toLowerCase()}`;
-  const destination = `${destinationPath}${fileName}`; // Full path in storage bucket
-
-  const fileUpload = bucket.file(destination);
+  const fileUpload = bucket.file(destinationPath);
   const blobStream = fileUpload.createWriteStream({
     metadata: {
-      contentType: `image/${path.extname(originalname).toLowerCase().substring(1)}`, // Dynamically set content type based on original extension
+      contentType: contentType, // Use provided content type or let Storage guess
     },
   });
 
@@ -75,21 +99,30 @@ export const uploadFileToStorage = async (fileBuffer: Buffer, originalname: stri
 };
 
 /**
- * Deletes a file from Firebase Storage using its public URL.
+ * Deletes a file from Firebase Storage given its public URL.
  * @param fileUrl The public URL of the file to delete.
- * @returns A promise that resolves when the file is deleted.
+ * @returns A promise that resolves when the file is deleted. Returns false if the file was not found.
  */
-export const deleteFileFromStorageByUrl = async (fileUrl: string): Promise<void> => {
+export const deleteFileByUrl = async (fileUrl: string): Promise<boolean> => {
   if (!bucketName) {
     console.error(`${FIREBASE_STORAGE_BUCKET_ENV_VAR} environment variable is not set.`);
-    throw new Error("Firebase Storage bucket name is not configured.");
+    throw new Error("Firebase Storage bucket is not configured.");
   }
+  if (!fileUrl) {
+      console.warn("No file URL provided for deletion.");
+      return false; // No URL means nothing to delete
+  }
+
 
   try {
     // Extract the file path (object name) from the public URL
-    // Public URL format: https://storage.googleapis.com/[BUCKET_NAME]/[OBJECT_NAME]
-    const url = new URL(fileUrl);
-    const objectName = url.pathname.substring(1).replace(`${bucketName}/`, ''); // Remove leading '/' and bucket name
+    const objectName = getFilePathFromUrl(fileUrl, bucketName);
+
+    if (!objectName) {
+        console.warn(`Could not extract object name from URL: ${fileUrl}. Skipping deletion.`);
+        return false; // Invalid URL or failed to extract path
+    }
+
 
     const file = storage.bucket(bucketName).file(objectName);
 
@@ -97,12 +130,50 @@ export const deleteFileFromStorageByUrl = async (fileUrl: string): Promise<void>
     const [exists] = await file.exists();
     if (exists) {
       await file.delete();
-      console.log(`File deleted from Firebase Storage: ${fileUrl}`);
+      console.log(`File deleted from Firebase Storage: ${fileUrl} (Object: ${objectName})`);
+      return true; // Deletion successful
     } else {
-      console.warn(`File not found in Firebase Storage, skipping deletion: ${fileUrl}`);
+      console.warn(`File not found in Firebase Storage, skipping deletion: ${fileUrl} (Object: ${objectName})`);
+      return false; // File not found
     }
   } catch (error) {
-    console.error('Error deleting file from Firebase Storage:', error);
+    console.error(`Error deleting file from Firebase Storage: ${fileUrl}`, error);
     throw error; // Re-throw the error
   }
 };
+
+/**
+ * Deletes a file from Firebase Storage given its file path (object name).
+ * @param filePath The path to the file within the bucket (object name).
+ * @returns A promise that resolves when the file is deleted. Returns false if the file was not found.
+ */
+export const deleteFileByPath = async (filePath: string): Promise<boolean> => {
+    if (!bucket) {
+        throw new Error("Firebase Storage bucket is not configured.");
+    }
+     if (!filePath) {
+         console.warn("No file path provided for deletion.");
+         return false; // No path means nothing to delete
+     }
+
+    try {
+        const file = bucket.file(filePath);
+
+        // Check if the file exists before attempting to delete
+        const [exists] = await file.exists();
+        if (exists) {
+            await file.delete();
+            console.log(`File deleted from Firebase Storage by path: ${filePath}`);
+            return true; // Deletion successful
+        } else {
+            console.warn(`File not found in Firebase Storage by path, skipping deletion: ${filePath}`);
+            return false; // File not found
+        }
+    } catch (error) {
+        console.error(`Error deleting file from Firebase Storage by path: ${filePath}`, error);
+        throw error; // Re-throw the error
+    }
+};
+
+
+// TODO: 필요한 경우 다른 Storage 유틸리티 함수 추가 (예: 파일 메타데이터 조회 등)

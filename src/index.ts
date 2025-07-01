@@ -9,8 +9,8 @@ import rateLimit from 'express-rate-limit'; // rateLimit 함수 import
 import accountsRouter from '@/routes/accountsRoutes'; // accounts 라우터 import
 
 import showsRouter from '@/routes/showsRoutes'; // 쇼 라우터 import
-import { authenticate } from '@/routes/accountsRoutes'; // authenticate 및 apiKeyAuth 미들웨어 import
 import Logger from './utils/Logger';
+import { authenticateToken } from './middleware/auth';
 
 
 
@@ -37,11 +37,8 @@ const rootRateLimiter = rateLimit({
 // Account 관련 라우터 사용
 app.use('/accounts', accountsRouter);
 
-// Quiz 관련 라우터 사용
-
-
 // Show 관련 라우터 사용
-app.use('/shows', authenticate, showsRouter);
+app.use('/shows', authenticateToken, showsRouter);
 
 const port = parseInt(process.env.PORT || '3000');
 app.listen(port, () => {

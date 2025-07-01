@@ -129,7 +129,7 @@ async function getShow(token: string, id: string): Promise<Show | undefined> {
 }
 
 async function testImageUpload(token: string, showId: string) {
-  const url = `${API_URL}/shows/${showId}/upload-background-image`;
+  const url = `${API_URL}/shows/${showId}/background-image`;
   console.log(`Testing image upload for Show ID ${showId} to:`, url);
 
   // Create a dummy image buffer for testing
@@ -173,19 +173,29 @@ async function testImageUpload(token: string, showId: string) {
 async function testImageDelete(token: string, showId: string) {
   console.log(`\n--- Testing Image Deletion for Show ID: ${showId} ---`);
   try {
-    // Show 업데이트 API를 사용하여 backgroundImageUrl을 null로 설정하여 이미지 삭제 요청
-    const updateResult = await updateShow(token, showId, { backgroundImageUrl: "" });
+    // 이미지 삭제 API 엔드포인트 URL
+    const deleteUrl = `${API_URL}/shows/${showId}/background-image`;
 
-    if (updateResult) {
-      console.log("Image deletion via update successful.");
-      // Show 정보를 다시 가져와서 backgroundImageUrl이 null인지 확인
-      const showAfterDelete = await getShow(token, showId);
-      console.log("Show after image deletion:", showAfterDelete?.backgroundImageUrl === null ? "null" : showAfterDelete?.backgroundImageUrl);
-      return updateResult; // 업데이트된 Show 객체 반환
-    } else {
-      console.error("Image deletion via update failed: Show not found or update issue.");
-      throw new Error("Image deletion via update failed.");
+    const response = await fetch(deleteUrl, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    console.log(`Image deletion response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
     }
+
+    const result = await response.json();
+    console.log('Image deletion API Response:', result);
+    // 여기서 응답 결과를 바탕으로 삭제 성공 여부를 판단할 수 있습니다.
+    // 예: return result.message === 'Background image deleted and show updated successfully';
+    return result; // 삭제 후 업데이트된 Show 객체 또는 성공 메시지 반환
+
   } catch (error: any) {
     console.error('Error during image deletion test:', error.message);
     throw error; // 오류를 다시 던져서 호출하는 곳에서 처리하도록 함
@@ -204,7 +214,7 @@ async function testImageModify(token: string, showId: string) {
     const dummyFile2 = new File([dummyImageData2], "test_image_modify.png", { type: "image/png" });
 
     // 이미지 업로드 API 엔드포인트 URL
-    const uploadUrl = `${API_URL}/shows/${showId}/upload-background-image`;
+    const uploadUrl = `${API_URL}/shows/${showId}/background-image`;
 
     const formData = new FormData();
     formData.append("backgroundImage", dummyFile2); // 'backgroundImage'는 서버에서 기대하는 필드 이름
@@ -272,19 +282,14 @@ loginAccount("dsdskm@gmail.com", "123456").then(async (res) => {
   };
 
   if (token) {
-    const testShowId = "SuIHwzUngeNJNjPVfRzQ"
+    const testShowId = "BZa1wph9Usn1TYWLkm3A"
     // await addShow(token,sampleShow)
     // await getShows(token)
-    // await getShow(token, "1751330904549")
-    // await updateShow(token, "YOUR_VALID_SHOW_ID", { title: "Updated Title" }); // Replace with a valid Show ID
+    // await getShow(token, testShowId)
+    // await updateShow(token, testShowId, { title: "Updated Title" }); // Replace with a valid Show ID
     // await deleteShow(token, "YOUR_VALID_SHOW_ID"); // Replace with a valid Show ID
-    // 1. 이미지 업로드 테스트
     // await testImageUpload(token, testShowId);
-
-    // 2. 이미지 수정 테스트 (새 이미지 업로드 및 URL 업데이트)
     // await testImageModify(token, testShowId);
-
-    // 3. 이미지 삭제 테스트
     await testImageDelete(token, testShowId);
   }
 })

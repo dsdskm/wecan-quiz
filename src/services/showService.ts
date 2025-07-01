@@ -1,11 +1,44 @@
-import { Show, ShowStatus } from '../types/Show';
-import { getShowById as getShowByIdFromFirebase, createShow as createShowInFirebase, updateShow as updateShowInFirebase, deleteShow as deleteShowFromFirebase, getShows as getShowsFromFirebase } from '../firebaseApi';
-import { uploadFileToStorage, deleteFileFromStorageByUrl } from '../utils/storage'; // Import storage functions
-import Logger from '@/utils/Logger';
+import {
+  getShow as getShowFromFirebase,
+  getAllShows as getAllShowsFromFirebase,
+  createShow as createShowInFirebase,
+  updateShow as updateShowInFirebase,
+  deleteShow as deleteShowFromFirebase,
+} from '../firebaseApi';
 
-export const showService = {
+// Storage 유틸리티 함수 import (이름 변경 및 통합)
+import { uploadFile, deleteFileByUrl } from '../utils/storage';
+import { Show, ShowStatus } from '../types/Show';
+import * as path from 'path'; // path 모듈 import 유지
+
+
+// Show 배경 이미지 파일 이름 및 경로 생성 헬퍼 함수
+const generateShowBackgroundImagePath = (showId: string, originalName: string): string => {
+  const destinationDir = `show_backgrounds/${showId}/`;
+  const timestamp = Date.now();
+  const fileExtension = path.extname(originalName).toLowerCase();
+  const fileName = `${timestamp}${fileExtension}`;
+  return `${destinationDir}${fileName}`;
+};
+
+const showService = {
+  /**
+   * Create a new show.
+   * @param showData The show data.
+   * @returns A promise that resolves with the created Show object.
+   */
+  async createShow(showData: Partial<Show>): Promise<Show> {
+    // 배경 이미지 없이 Show 데이터만 생성
+    const newShow = await createShowInFirebase(showData);
+    return newShow;
+  },
+
+  /**
+   * Get all shows.
+   * @returns A promise that resolves with an array of Show objects.
+   */
   async getAllShows(): Promise<Show[]> {
-    return await getShowsFromFirebase();
+    return await getAllShowsFromFirebase();
   },
 
   /**
@@ -14,46 +47,20 @@ export const showService = {
    * @returns A promise that resolves with the Show object or null if not found.
    */
   async getShowById(showId: string): Promise<Show | null> {
-    return await getShowByIdFromFirebase(showId);
+    return await getShowFromFirebase(showId);
   },
 
   /**
-   * Create a new show.
-   * @param showData The data for the new show.
-   */
-  async createShow(showData: Show): Promise<Show> {
-    // createShowInFirebase handles ID generation and timestamps.
-    return await createShowInFirebase(showData);
-  },
-
-  /**
-   * Update an existing show.
+   * Update a show by its ID.
    * @param showId The ID of the show to update.
-   * @param updateData The data to update the show with.
+   * @param updateData The data to update (excluding backgroundImageUrl - this is handled by updateShowBackgroundImageUrl).
    * @returns A promise that resolves with the updated Show object or null if not found.
    */
-  async updateShow(showId: string, updateData: any): Promise<Show | null> {
-    const existingShow = await this.getShowById(showId);
-    if (!existingShow) {
-      return null; // Show not found
-    }
+  async updateShow(showId: string, updateData: Partial<Show>): Promise<Show | null> {
+    // This function now only updates show data excluding backgroundImageUrl.
+    // If updateData accidentally contains backgroundImageUrl, it will be sent to Firebase API.
+    // Consider adding validation here to prevent updating backgroundImageUrl via this function.
 
-    const dataToUpdate: any = { ...updateData }; // Copy update data
-
-    // Check if backgroundImageUrl is being updated or removed
-    if ('backgroundImageUrl' in updateData) {
-      // If there was an existing background image, delete it from storage
-      if (existingShow.backgroundImageUrl) {
-        try {
-          await deleteFileFromStorageByUrl(existingShow.backgroundImageUrl);
-        } catch (error) {
-          // Log error but continue with show update to avoid blocking
-          console.error(`Failed to delete old background image for show ${showId}:`, error);
-          // Decide how to handle this error: continue or stop?
-          // For now, we log and continue.
-        }
-      }
-    }
     // updateShowInFirebase returns the updated show or null
     return await updateShowInFirebase(showId, updateData);
   },
@@ -61,69 +68,134 @@ export const showService = {
   /**
    * Delete a show by its ID.
    * @param showId The ID of the show to delete.
-   * @returns A promise that resolves when the show is deleted.
    * @returns A promise that resolves with true if the show was deleted, false otherwise.
    */
-  async deleteShow(showId: string): Promise<boolean> { // Change return type to boolean
-    return await deleteShowFromFirebase(showId);
+  async deleteShow(showId: string): Promise<boolean> {
+    // Before deleting the show data, delete related files (e.g., background image)
+    const showToDelete = await getShowFromFirebase(showId); // Show 정보 가져오기
+
+    if (showToDelete && showToDelete.backgroundImageUrl) {
+      try {
+        // deleteFileByUrl 유틸리티 함수 사용
+        await deleteFileByUrl(showToDelete.backgroundImageUrl);
+        console.log(`Deleted background image for show ${showId}: ${showToDelete.backgroundImageUrl}`);
+      } catch (error) {
+        console.error(`Failed to delete background image for show ${showId} during deletion:`, error);
+        // 오류 발생 시 로그만 남기고 계속 진행 (Show 데이터 삭제는 시도)
+      }
+    } else if (showToDelete) {
+      console.warn(`Show with ID ${showId} has no background image to delete during deletion.`);
+    } else {
+      console.warn(`Show with ID ${showId} not found for deletion (background image check).`);
+    }
+
+
+    // Delete the show data from Firebase
+    return await deleteShowFromFirebase(showId); // <-- Show 데이터 삭제
   },
 
   /**
-   * Uploads a background image for a show and updates the show's backgroundImageUrl.
+   * Update the status of a show.
    * @param showId The ID of the show.
-   * @param file The Multer file object to upload.
-   * @returns A promise that resolves with the updated Show object or null if not found.
+   * @param status The new status.
+   * @returns A promise that resolves with true if the status was updated, false otherwise.
    */
-  async uploadBackgroundImage(showId: string, file: Express.Multer.File): Promise<Show | null> {
-    const show = await this.getShowById(showId);
-    Logger.info(`uploadBackgroundImage showId=${showId}`,show)
-    if (!show) {
-      return null;
+  async updateShowStatus(showId: string, status: ShowStatus): Promise<boolean> {
+    const updateData: Partial<Show> = { status };
+    const updatedShow = await updateShowInFirebase(showId, updateData);
+    return updatedShow !== null;
+  },
+  /** 특정 Show의 배경 이미지 업로드 및 URL 업데이트 서비스 함수 (Storage 유틸리티 사용) */
+  async updateShowBackgroundImageUrl(showId: string, file: Express.Multer.File): Promise<Show | null> { // <-- export 키워드 제거
+    // 1. 현재 Show 정보를 가져와 기존 이미지 URL 확인
+    const existingShow = await getShowFromFirebase(showId);
+    if (!existingShow) {
+      console.warn(`Show with ID ${showId} not found for background image update.`);
+      return null; // Show가 없는 경우
     }
 
-    const destinationPath = `show_backgrounds/${showId}/`; // Path in storage bucket, includes showId folder
-    const fileName = 'show_background.png'; // Fixed file name
+    // 2. 기존 배경 이미지 파일 삭제 (기존 URL이 있는 경우)
+    if (existingShow.backgroundImageUrl) {
+      try {
+        // deleteFileByUrl 유틸리티 함수 사용
+        await deleteFileByUrl(existingShow.backgroundImageUrl);
+        console.log(`Deleted old background image for show ${showId}: ${existingShow.backgroundImageUrl}`);
+      } catch (error) {
+        console.error(`Failed to delete old background image for show ${showId}:`, error);
+        // 오류 발생 시 로그만 남기고 계속 진행 (새 이미지 업로드는 시도)
+      }
+    }
 
+    // 3. 새로운 이미지 Firebase Storage에 업로드 및 새 URL 얻기 (Storage 유틸리티 사용)
+    // 파일 이름 및 경로 생성은 여기서 담당
+    const destinationPathWithFileName = generateShowBackgroundImagePath(showId, file.originalname);
+    const contentType = file.mimetype; // Multer 파일 객체에서 Content Type 가져옴
+
+    let newImageUrl: string;
     try {
-      const publicUrl = await uploadFileToStorage(file.buffer, fileName, destinationPath); // Use the new path and file name
-
-      // Update the show with the new background image URL
-      const updatedShow = await this.updateShow(showId, { backgroundImageUrl: publicUrl });
-
-      return updatedShow;
+      // uploadFile 유틸리티 함수 사용
+      newImageUrl = await uploadFile(file.buffer, destinationPathWithFileName, contentType);
+      console.log(`Uploaded new background image for show ${showId}: ${newImageUrl}`);
     } catch (error) {
-      console.error('Error uploading background image:', error);
-      throw error; // Re-throw the error to be handled by the route
+      console.error(`Failed to upload new background image for show ${showId}:`, error);
+      throw new Error('Failed to upload new background image'); // 새 이미지 업로드 실패 시 오류 발생
     }
+
+
+    // 4. Show 데이터의 backgroundImageUrl 필드를 새 URL로 업데이트
+    const updateData: Partial<Show> = { backgroundImageUrl: newImageUrl };
+    const updatedShow = await updateShowInFirebase(showId, updateData); // Firebase API 호출
+
+    if (!updatedShow) {
+      // Show 데이터 업데이트 실패 시 (Firestore 문제 등)
+      // 업로드된 새 이미지 파일을 삭제하는 것이 좋습니다.
+      try {
+        // deleteFileByUrl 유틸리티 함수 사용
+        await deleteFileByUrl(newImageUrl);
+        console.warn(`Cleaned up newly uploaded image ${newImageUrl} due to show update failure.`);
+      } catch (cleanupError) {
+        console.error(`Failed to clean up newly uploaded image ${newImageUrl}:`, cleanupError);
+      }
+    }
+
+    return updatedShow;
   },
+
   /**
-   * Adds a quiz ID to the show's quizzes list.
+   * Delete the background image for a specific show and clear the URL in the show data.
    * @param showId The ID of the show.
-   * @param quizId The ID of the quiz to add.
-   * @returns A promise that resolves with the updated Show object or null if not found.
+   * @returns A promise that resolves with true if the process was successful, false otherwise.
    */
-  async addQuizToShow(showId: string, quizId: string): Promise<Show | null> {
-    // This operation requires specific logic that is not a direct mapping to a simple Firebase update on the top-level document.
-    const show = await this.getShowById(showId);
-    if (!show) {
-      return null;
-    }
+  async deleteShowBackgroundImage(showId: string): Promise<boolean> {
+    try {
+      // 1. Get the show data to find the background image URL
+      const showToDelete = await getShowFromFirebase(showId);
 
-    // Assuming quizzes in Show are Quiz objects or IDs, update this based on actual type
-    if (!show.quizzes) {
-      show.quizzes = [];
-    }
+      if (!showToDelete) {
+        console.warn(`Show with ID ${showId} not found for background image deletion.`);
+        // If the show doesn't exist, we can consider the operation successful in a sense
+        // that there's no image to delete for that show.
+        return true;
+      }
 
-    // Prevent adding duplicate quiz IDs (assuming quizId is sufficient)
-    if (!show.quizzes.some(quiz => quiz.id === quizId)) { // Adjust comparison if quizzes are full objects
-      show.quizzes.push({ id: quizId } as any); // Add the quiz (casting as any for simplicity, use correct type)
-      await this.updateShow(showId, { quizzes: show.quizzes });
+      // 2. Delete the file from Firebase Storage if a URL exists
+      if (showToDelete.backgroundImageUrl) {
+        await deleteFileByUrl(showToDelete.backgroundImageUrl);
+        console.log(`Successfully deleted background image for show ${showId}: ${showToDelete.backgroundImageUrl}`);
+      } else {
+        console.log(`Show with ID ${showId} has no background image URL to delete.`);
+      }
+
+      // 3. Update the show data in Firebase, setting backgroundImageUrl to ""
+      await updateShowInFirebase(showId, { backgroundImageUrl: "" });
+      console.log(`Successfully cleared backgroundImageUrl for show ${showId}`);
+
+      return true; // Indicate success
+    } catch (error) {
+      console.error(`Failed to delete background image or update show data for show ${showId}:`, error);
+      return false; // Indicate failure
     }
-    return show;
   },
-
-  async removeQuizFromShow(showId: string, quizId: string): Promise<Show | null> {
-    console.warn(`removeQuizFromShow not implemented.`);
-    return null; // Placeholder, needs proper implementation
-  }
 };
+
+export default showService;

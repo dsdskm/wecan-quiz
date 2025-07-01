@@ -8,118 +8,95 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __rest = (this && this.__rest) || function (s, e) {
-    var t = {};
-    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
-        t[p] = s[p];
-    if (s != null && typeof Object.getOwnPropertySymbols === "function")
-        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
-            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
-                t[p[i]] = s[p[i]];
-        }
-    return t;
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllAccounts = exports.deleteUser = exports.loginUser = exports.registerUser = void 0;
-const firebase_1 = require("@/firebase");
-const uuid_1 = require("uuid");
-const Logger_1 = __importDefault(require("@/utils/Logger"));
-const bcrypt_1 = __importDefault(require("bcrypt")); // bcrypt는 npm 패키지이므로 상대 경로가 아닌 모듈 이름으로 임포트
-const joi_1 = __importDefault(require("joi"));
-// 임시 사용자 데이터 저장 (메모리) - 실제 서비스에서는 데이터베이스 사용
-const accountsCollection = firebase_1.db.collection('accounts');
-// 사용자 로그인 데이터 유효성 검사 스키마
-const loginSchema = joi_1.default.object({
-    userId: joi_1.default.string().required(),
-    password: joi_1.default.string().required(),
-});
-const registerUser = (userData) => __awaiter(void 0, void 0, void 0, function* () {
-    const value = userData;
-    const { userId, username, password } = value;
-    // userId 중복 확인
-    const accountSnapshot = yield accountsCollection.where('userId', '==', userId).get();
-    if (!accountSnapshot.empty) {
-        throw new Error('User ID already exists');
-    }
-    // 비밀번호 해싱
-    const hashedPassword = yield bcrypt_1.default.hash(password, 10); // 10은 솔트 라운드 수
-    // 새 계정 생성
-    const newAccount = {
-        id: (0, uuid_1.v4)(), // 고유 ID 생성
-        userId: userId,
-        username: username,
-        password: hashedPassword, // 해싱된 비밀번호 저장
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    };
-    // Firestore에 계정 추가
-    yield accountsCollection.doc(newAccount.id).set(newAccount);
-    Logger_1.default.info(`New account created: ${newAccount.userId}`);
-    // 민감한 정보 제외하고 반환
-    const { password: _ } = newAccount, accountWithoutPassword = __rest(newAccount, ["password"]);
-    return accountWithoutPassword;
-});
-exports.registerUser = registerUser;
-const loginUser = (loginData) => __awaiter(void 0, void 0, void 0, function* () {
-    // 입력 값 유효성 검사
-    const { error, value } = loginSchema.validate(loginData);
-    if (error) {
-        throw new Error(error.details[0].message);
-    }
-    const { userId, password } = value;
-    // 사용자 찾기
-    const accountSnapshot = yield accountsCollection.where('userId', '==', userId).limit(1).get();
-    if (accountSnapshot.empty) {
-        throw new Error('User not found');
-    }
-    const accountDoc = accountSnapshot.docs[0];
-    const account = accountDoc.data();
-    // 입력된 비밀번호와 저장된 해시된 비밀번호 비교
-    const passwordMatch = yield bcrypt_1.default.compare(password, account.password);
-    if (!passwordMatch) {
-        throw new Error('Invalid password');
-    }
-    // 로그인 성공 시 토큰 생성 등 처리 (예시)
-    const token = (0, uuid_1.v4)(); // 임시 토큰 생성
-    Logger_1.default.info(`Generated token: "${token}"`);
-    Logger_1.default.info(`User logged in: ${userId}`);
-    // 토큰 및 사용자 정보 반환
-    return { token, userId: account.userId, username: account.username };
-});
-exports.loginUser = loginUser;
-const deleteUser = (userId) => __awaiter(void 0, void 0, void 0, function* () {
-    // 사용자 찾기
-    const accountSnapshot = yield accountsCollection.where('userId', '==', userId).limit(1).get();
-    if (accountSnapshot.empty) {
-        throw new Error('User not found');
-    }
-    const accountDoc = accountSnapshot.docs[0];
-    const accountIdToDelete = accountDoc.id;
-    // Firestore에서 계정 삭제
-    yield accountsCollection.doc(accountIdToDelete).delete();
-    Logger_1.default.info(`Account deleted: ${userId}`);
-    return true; // 삭제 성공 시 true 반환
-});
-exports.deleteUser = deleteUser;
-const getAllAccounts = () => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const accountsSnapshot = yield accountsCollection.get();
-        const accounts = [];
-        accountsSnapshot.forEach(doc => {
-            const accountData = doc.data();
-            // 민감한 정보 (비밀번호) 제외하고 추가
-            const { password: _ } = accountData, accountWithoutPassword = __rest(accountData, ["password"]);
-            accounts.push(accountWithoutPassword);
+const Logger_1 = __importDefault(require("../utils/Logger")); // Logger import
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken")); // JWT 라이브러리 import
+const bcrypt_1 = __importDefault(require("bcrypt")); // 비밀번호 해싱 라이브러리 import
+const firebaseApi_1 = require("@/firebaseApi");
+// JWT Secret Key (환경 변수에서 가져오거나 안전하게 관리)
+// TODO: 실제 환경에서는 .env 파일 등을 사용하여 관리해야 합니다.
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'; // 기본값은 안전하지 않으니 변경 필수
+const accountService = {
+    /**
+     * Register a new user account.
+     * @param userData The user data for registration.
+     * @returns A promise that resolves with the created Account object.
+     */
+    registerUser(userData) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // Add any business logic or validation here before saving to Firebase
+            // For example, check if user ID or email already exists
+            // Hash the password before saving
+            // 예시: 비밀번호 해싱
+            if (userData.password) {
+                const salt = yield bcrypt_1.default.genSalt(10);
+                userData.password = yield bcrypt_1.default.hash(userData.password, salt);
+            }
+            const newAccount = yield (0, firebaseApi_1.registerUserInFirebase)(userData);
+            return newAccount;
         });
-        Logger_1.default.info(`Fetched ${accounts.length} accounts.`);
-        return accounts;
+    },
+    /**
+     * Get a user account by user ID.
+     * @param userId The ID of the user.
+     * @returns A promise that resolves with the Account object or null if not found.
+     */
+    getUserByUserId(userId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield (0, firebaseApi_1.getUserByIdFromFirebase)(userId);
+        });
+    },
+    /**
+     * Log in a user account.
+     * @param userId The ID of the user.
+     * @param password The user's password.
+     * @returns A promise that resolves with an object containing user info and JWT token, or null if login fails.
+     */
+    loginUser(userId, password) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // 1. 사용자 ID로 계정 정보 가져오기
+                const user = yield (0, firebaseApi_1.getUserByIdFromFirebase)(userId); // Firebase API에서 사용자 정보 가져오는 함수 필요
+                if (!user) {
+                    Logger_1.default.warn(`Login failed: User not found with ID ${userId}`);
+                    return null; // 사용자 없음
+                }
+                // 2. 제공된 비밀번호와 저장된 해싱된 비밀번호 비교
+                // TODO: Firebase API (getUserByIdFromFirebase)가 비밀번호도 가져오는지 확인 필요
+                // 만약 Firebase API가 해싱된 비밀번호를 가져오지 않는다면, 비밀번호 확인 로직을 별도로 구현해야 합니다.
+                // 예: 별도의 Firebase API 함수 호출 또는 서비스 내부에서 처리
+                // 현재는 user 객체에 password 필드가 있다고 가정합니다.
+                if (!user.password) {
+                    Logger_1.default.error(`Login failed for user ${userId}: Password not stored or retrieved.`);
+                    return null; // 비밀번호 정보가 없는 경우
+                }
+                const passwordMatch = yield bcrypt_1.default.compare(password, user.password);
+                if (!passwordMatch) {
+                    Logger_1.default.warn(`Login failed: Invalid password for user ID ${userId}`);
+                    return null; // 비밀번호 불일치
+                }
+                // 3. 로그인 성공 시 JWT 토큰 생성
+                // 토큰에 포함할 정보 (사용자 ID 등)
+                const payload = { userId: user.userId };
+                // JWT 토큰 생성 (만료 시간 설정 등)
+                const token = jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: '1h' }); // 1시간 유효한 토큰 예시
+                // 비밀번호는 응답에 포함하지 않도록 제외
+                const userWithoutPassword = Object.assign({}, user);
+                delete userWithoutPassword.password; // 비밀번호 필드 제거
+                // 4. 사용자 정보와 토큰 반환
+                return { user: userWithoutPassword, token };
+            }
+            catch (error) {
+                Logger_1.default.error(`Error during login for user ${userId}:`, error);
+                throw new Error('Failed to log in'); // 로그인 처리 중 오류 발생
+            }
+        });
     }
-    catch (error) {
-        throw new Error(`Error fetching accounts: ${error.message}`);
-    }
-});
-exports.getAllAccounts = getAllAccounts;
+    // 필요한 다른 계정 관련 서비스 함수들 추가
+    // 예: 프로필 업데이트, 비밀번호 변경 등
+};
+exports.default = accountService;
 //# sourceMappingURL=accountService.js.map

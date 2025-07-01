@@ -1,234 +1,42 @@
-import { Router, Request, Response } from 'express';
-import Joi from 'joi';
-import { showService } from '../services/showService'; // Assuming the service file is in ../services
-import Logger from '@/utils/Logger';
+import express from 'express';
+// import { authenticate } from './accountsRoutes'; // 이 줄은 더 이상 필요 없음
 
-import multer from 'multer'; // Import multer
-const router = Router();
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken } from '@/middleware/auth'; // 인증 미들웨어 import
+import multer from 'multer'; // multer 미들웨어 import
 
-// Joi schema for Quiz structure (assuming it matches Quiz.ts)
-const quizSchema = Joi.object({
-  question: Joi.string().required(),
-  id: Joi.string().optional(), // Added based on Quiz.ts
-  title: Joi.string().optional(), // Added based on Quiz.ts
-  quizType: Joi.string().optional(), // Added based on Quiz.ts
-  options: Joi.array().items(Joi.string()).required(),
-  correctAnswer: Joi.alt(Joi.string(), Joi.array().items(Joi.string()), Joi.number()).optional(), // Added based on Quiz.ts
-  timeLimit: Joi.number().optional(), // Added based on Quiz.ts
-  hint: Joi.string().optional(), // Added based on Quiz.ts
-  referenceImageUrl: Joi.string().optional(), // Added based on Quiz.ts
-  referenceVideoUrl: Joi.string().optional(), // Added based on Quiz.ts
-  createdAt: Joi.date().optional(), // Added based on Quiz.ts
-  updatedAt: Joi.date().optional(), // Added based on Quiz.ts
-});
+// Show 컨트롤러 함수 import
+import {
+  createShow,
+  getAllShows,
+  getShow,
+  updateShow,
+  deleteShow,
+  uploadShowBackgroundImage,
+  deleteShowBackgroundImage,
+} from '@/controllers/showsController';
 
-const createShowSchema = Joi.object({
-  title: Joi.string().required(),
-  // Detailed description of the show
-  details: Joi.string().required(),
-  // Optional URL for a background image
-  backgroundImageUrl: Joi.string().allow(null, '').optional(),
-  quizzes: Joi.array().items(quizSchema).min(0).required(), // 빈 배열도 허용
-  // Status of the show (waiting, inprogress, paused, completed)
-  status: Joi.string().valid('waiting', 'inprogress', 'paused', 'completed').required(),
-  // URL related to the show
-  url: Joi.string().uri().required(),
-});
+const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() }); // 메모리 스토리지 사용
 
-// Joi schema for updating a show
-const updateShowSchema = Joi.object({
-  title: Joi.string().optional(),
-  details: Joi.string().optional(),
-  backgroundImageUrl: Joi.string().allow(null, '').optional(),
-  status: Joi.string().valid('waiting', 'inprogress', 'paused', 'completed').optional(),
-  url: Joi.string().uri().optional(),
-  // quizzes, createdAt, startTime, endTime, updatedAt are not updated directly via this route
-});
+// Show 생성 라우트 (배경 이미지 없이 Show 데이터만 생성)
+router.post('/', authenticateToken, createShow); // upload.single('backgroundImage') 미들웨어 제거
 
-// Configure multer for file uploads
-const storage = multer.memoryStorage(); // Store files in memory
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // Limit file size to 5MB (adjust as needed)
-  },
-  fileFilter: (req: Request, file: Express.Multer.File, cb: any) => { // Use 'any' to bypass type error
-    // Accept only image files
-    if (!file.mimetype.startsWith('image/')) {
-      return cb(new Error('Only image files are allowed'), false);
-    }
-    cb(null, true);
-  },
-});
+// 모든 Show 조회 라우트
+router.get('/', authenticateToken, getAllShows); // 핸들러를 컨트롤러 함수로 교체
 
-// GET /shows - get all shows
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const shows = await showService.getAllShows();
-    res.status(200).json(shows);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// 특정 Show 조회 라우트
+router.get('/:id', authenticateToken, getShow); // 핸들러를 컨트롤러 함수로 교체
 
-// GET /shows/:showId - get show by ID
-router.get('/:showId', async (req: Request, res: Response) => {
-  try {
-    const { showId } = req.params;
-    const show = await showService.getShowById(showId);
+// Show 업데이트 라우트 (배경 이미지 파일 처리 로직 제외)
+router.put('/:id', authenticateToken, updateShow); // upload.single('backgroundImage') 미들웨어 제거
 
-    if (!show) {
-      return res.status(404).json({ error: 'Show not found' });
-    }
+// Show 삭제 라우트 (단일 삭제)
+router.delete('/:id', authenticateToken, deleteShow); // 핸들러를 컨트롤러 함수로 교체
 
-    res.status(200).json(show);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Show 배경 이미지 업로드 라우트
+router.post('/:showId/background-image', authenticateToken, upload.single('backgroundImage'), uploadShowBackgroundImage); // uploadShowBackgroundImage 컨트롤러 함수 사용
 
-// POST /shows - create new show
-router.post('/', async (req: Request, res: Response) => {
-  Logger.info("post shows");
-  try {
-    Logger.info(`POST /shows received body: ${JSON.stringify(req.body)}`);
-
-    const { error, value } = createShowSchema.validate(req.body);
-
-    // if (error) {
-    //   Logger.error("Joi validation error:", error.details[0].message);
-    //   return res.status(400).json({ error: error.details[0].message });
-    // }
-
-    Logger.info(`POST /shows Joi validated value: ${JSON.stringify(value)}`);
-
-    const newShowData = {
-      ...value,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    const newShow = await showService.createShow(newShowData);
-    res.status(201).json(newShow);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-// PUT /shows/:showId - update show by ID
-router.put('/:showId', async (req: Request, res: Response) => {
-  try {
-    const { showId } = req.params;
-    const { error, value } = updateShowSchema.validate(req.body);
-
-    if (error) {
-      return res.status(400).json({ error: error.details[0].message });
-    }
-
-    // Add updated timestamp
-    const updateData = {
-      ...value,
-      updatedAt: new Date(),
-    };
-
-
-    const updatedShow = await showService.updateShow(showId, updateData);
-
-    if (!updatedShow) {
-      return res.status(404).json({ error: 'Show not found' });
-    }
-
-    res.status(200).json(updatedShow);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// DELETE /shows/:showId - delete show by ID
-router.delete('/:showId', async (req: Request, res: Response) => {
-  try {
-    const { showId } = req.params;
-    const success = await showService.deleteShow(showId);
-
-    if (!success) {
-      return res.status(404).json({ error: 'Show not found' });
-    }
-
-    res.status(204).send(); // No content to send back on successful deletion
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POST /shows/:showId/quizzes - add quiz to show
-router.post('/:showId/quizzes', async (req: Request, res: Response) => {
-  try {
-    const { showId } = req.params;
-    const { quizId } = req.body;
-
-    if (!quizId || typeof quizId !== 'string') {
-      return res.status(400).json({ error: 'quizId is required and must be a string' });
-    }
-
-    const updatedShow = await showService.addQuizToShow(showId, quizId);
-
-    if (!updatedShow) {
-      // Service should ideally return null if show or quiz not found
-      // Or have specific error handling
-      // For now, assuming if update fails, it might be show not found
-      return res.status(404).json({ error: 'Show or Quiz not found' });
-    }
-
-    res.status(200).json(updatedShow);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// DELETE /shows/:showId/quizzes/:quizId - remove quiz from show
-router.delete('/:showId/quizzes/:quizId', async (req: Request, res: Response) => {
-  try {
-    const { showId, quizId } = req.params;
-
-    const updatedShow = await showService.removeQuizFromShow(showId, quizId);
-
-    if (!updatedShow) {
-      // Service should ideally return null if show not found or quiz not in show
-      // For now, assuming if update fails, it might be show not found
-      return res.status(404).json({ error: 'Show or Quiz not found in show' });
-    }
-
-    res.status(200).json(updatedShow);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POST /shows/:id/upload-background-image - Upload background image for a show
-router.post('/:id/upload-background-image', authenticateToken, upload.single('backgroundImage'), async (req: Request, res: Response) => {
-  try {
-    Logger.info("upload-background-image")
-    const showId = req.params.id;
-    const file = req.file; // Uploaded file will be in req.file
-
-    if (!file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
-
-    // Call the service function to upload the image and update the show
-    const updatedShow = await showService.uploadBackgroundImage(showId, file);
-
-    if (updatedShow) {
-      res.json(updatedShow);
-    } else {
-      res.status(404).json({ message: 'Show not found' });
-    }
-
-  } catch (error: any) {
-    console.error('Error uploading background image:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
+// Show 배경 이미지 삭제 라우트
+router.delete('/:showId/background-image', authenticateToken, deleteShowBackgroundImage); // deleteShowBackgroundImage 컨트롤러 함수 사용
 
 export default router;
