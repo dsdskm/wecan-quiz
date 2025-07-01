@@ -1,6 +1,6 @@
 // src/middleware/auth.ts
 
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, } from 'express';
 // import jwt from 'jsonwebtoken'; // Example: if using JWT
 
 /**
@@ -8,6 +8,7 @@ import { Request, Response, NextFunction } from 'express';
  * Checks for an Authorization header and the presence of a token.
  * Includes a TODO for actual token verification.
  */
+import jwt from 'jsonwebtoken';
 export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   // Extract the token from the Authorization header
   const authHeader = req.headers['authorization'];
@@ -19,18 +20,21 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     return res.sendStatus(401); // Unauthorized
   }
 
-  // TODO: Implement actual token verification logic here.
-  // - Use a library like jsonwebtoken to verify the token's signature and expiration.
-  // - If verification fails, return res.sendStatus(403); // Forbidden
-  // - If verification succeeds, extract user information from the token payload
-  //   and attach it to the request object (e.g., req.user = user;).
+  const jwtSecret = process.env.JWT_SECRET; // Ensure this environment variable is set
 
-  // Temporarily proceed to the next middleware/route if a token is present
-  // (Replace this with actual verification)
-  console.log("Temporary authentication: Token received, proceeding (verification skipped).");
-  // After successful verification:
-  // req.user = verifiedUser; // Assuming you have a User type
-  next(); // Proceed to the next middleware/route handler
+  if (!jwtSecret) {
+    console.error("JWT Secret not configured.");
+    return res.sendStatus(500); // Internal Server Error if secret is missing
+  }
+
+  jwt.verify(token, jwtSecret, (err, user) => {
+    if (err) {
+      console.warn("Token verification failed:", err.message);
+      return res.sendStatus(403); // Forbidden
+    }
+    (req as any).user = user; // Attach the decoded user payload to the request object
+    next(); // Proceed to the next middleware/route handler
+  });
 };
 
 // Optionally export other authentication-related middleware or functions here
