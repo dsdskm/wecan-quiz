@@ -15,16 +15,34 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const joi_1 = __importDefault(require("joi"));
 const showService_1 = require("../services/showService"); // Assuming the service file is in ../services
+const Logger_1 = __importDefault(require("@/utils/Logger"));
 const router = (0, express_1.Router)();
-// Joi schema for creating a new show
+// Joi schema for Quiz structure (assuming it matches Quiz.ts)
+const quizSchema = joi_1.default.object({
+    question: joi_1.default.string().required(),
+    id: joi_1.default.string().optional(), // Added based on Quiz.ts
+    title: joi_1.default.string().optional(), // Added based on Quiz.ts
+    quizType: joi_1.default.string().optional(), // Added based on Quiz.ts
+    options: joi_1.default.array().items(joi_1.default.string()).required(),
+    correctAnswer: joi_1.default.alt(joi_1.default.string(), joi_1.default.array().items(joi_1.default.string()), joi_1.default.number()).optional(), // Added based on Quiz.ts
+    timeLimit: joi_1.default.number().optional(), // Added based on Quiz.ts
+    hint: joi_1.default.string().optional(), // Added based on Quiz.ts
+    referenceImageUrl: joi_1.default.string().optional(), // Added based on Quiz.ts
+    referenceVideoUrl: joi_1.default.string().optional(), // Added based on Quiz.ts
+    createdAt: joi_1.default.date().optional(), // Added based on Quiz.ts
+    updatedAt: joi_1.default.date().optional(), // Added based on Quiz.ts
+});
 const createShowSchema = joi_1.default.object({
     title: joi_1.default.string().required(),
+    // Detailed description of the show
     details: joi_1.default.string().required(),
+    // Optional URL for a background image
     backgroundImageUrl: joi_1.default.string().optional(),
-    // quizzes are added separately, not required at creation
+    quizzes: joi_1.default.array().items(quizSchema).min(0).required(), // 빈 배열도 허용
+    // Status of the show (waiting, inprogress, paused, completed)
     status: joi_1.default.string().valid('waiting', 'inprogress', 'paused', 'completed').required(),
+    // URL related to the show
     url: joi_1.default.string().uri().required(),
-    // createdAt, startTime, endTime, updatedAt are managed by the service/database
 });
 // Joi schema for updating a show
 const updateShowSchema = joi_1.default.object({
@@ -61,16 +79,16 @@ router.get('/:showId', (req, res) => __awaiter(void 0, void 0, void 0, function*
 }));
 // POST /shows - create new show
 router.post('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    Logger_1.default.info("post shows");
     try {
+        Logger_1.default.info(`POST /shows received body: ${JSON.stringify(req.body)}`);
         const { error, value } = createShowSchema.validate(req.body);
         if (error) {
+            Logger_1.default.error("Joi validation error:", error.details[0].message);
             return res.status(400).json({ error: error.details[0].message });
         }
-        // Add creation timestamp and initial status/url
-        const newShowData = Object.assign(Object.assign({}, value), { createdAt: new Date(), updatedAt: new Date(), 
-            // startTime and endTime will likely be set when the show starts
-            quizzes: [] // Start with an empty quiz array
-         });
+        Logger_1.default.info(`POST /shows Joi validated value: ${JSON.stringify(value)}`);
+        const newShowData = Object.assign(Object.assign({}, value), { createdAt: new Date(), updatedAt: new Date() });
         const newShow = yield showService_1.showService.createShow(newShowData);
         res.status(201).json(newShow);
     }

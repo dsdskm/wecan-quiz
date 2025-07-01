@@ -85,13 +85,12 @@ router.get('/', async (req: Request, res: Response) => {
 // 사용자 로그인 - accountService 사용
 router.post('/login', validate(loginSchema), async (req: Request, res: Response) => {
   const { userId, password } = req.body;
-  Logger.info("login")
+  Logger.info(`login userId=${userId},password=${password}`,)
   try {
     // accountService의 loginUser 함수 호출
     const loginResult = await accountService.loginUser({ userId, password });
     const token = jwt.sign({ userId: loginResult.userId }, jwtSecret, { expiresIn: '1h' }); // Assuming loginResult has userId
     const result = { ...loginResult, token }
-    Logger.info(`loginResult`,loginResult)
     Logger.info(`result`,result)
     res.status(200).json(result);
   } catch (error: any) {

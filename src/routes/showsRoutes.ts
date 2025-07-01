@@ -1,18 +1,37 @@
 import { Router, Request, Response } from 'express';
 import Joi from 'joi';
 import { showService } from '../services/showService'; // Assuming the service file is in ../services
+import Logger from '@/utils/Logger';
 
 const router = Router();
 
-// Joi schema for creating a new show
+// Joi schema for Quiz structure (assuming it matches Quiz.ts)
+const quizSchema = Joi.object({
+  question: Joi.string().required(),
+  id: Joi.string().optional(), // Added based on Quiz.ts
+  title: Joi.string().optional(), // Added based on Quiz.ts
+  quizType: Joi.string().optional(), // Added based on Quiz.ts
+  options: Joi.array().items(Joi.string()).required(),
+  correctAnswer: Joi.alt(Joi.string(), Joi.array().items(Joi.string()), Joi.number()).optional(), // Added based on Quiz.ts
+  timeLimit: Joi.number().optional(), // Added based on Quiz.ts
+  hint: Joi.string().optional(), // Added based on Quiz.ts
+  referenceImageUrl: Joi.string().optional(), // Added based on Quiz.ts
+  referenceVideoUrl: Joi.string().optional(), // Added based on Quiz.ts
+  createdAt: Joi.date().optional(), // Added based on Quiz.ts
+  updatedAt: Joi.date().optional(), // Added based on Quiz.ts
+});
+
 const createShowSchema = Joi.object({
   title: Joi.string().required(),
+  // Detailed description of the show
   details: Joi.string().required(),
+  // Optional URL for a background image
   backgroundImageUrl: Joi.string().optional(),
-  // quizzes are added separately, not required at creation
+  quizzes: Joi.array().items(quizSchema).min(0).required(), // 빈 배열도 허용
+  // Status of the show (waiting, inprogress, paused, completed)
   status: Joi.string().valid('waiting', 'inprogress', 'paused', 'completed').required(),
+  // URL related to the show
   url: Joi.string().uri().required(),
-  // createdAt, startTime, endTime, updatedAt are managed by the service/database
 });
 
 // Joi schema for updating a show
@@ -53,22 +72,24 @@ router.get('/:showId', async (req: Request, res: Response) => {
 
 // POST /shows - create new show
 router.post('/', async (req: Request, res: Response) => {
+  Logger.info("post shows");
   try {
+    Logger.info(`POST /shows received body: ${JSON.stringify(req.body)}`);
+
     const { error, value } = createShowSchema.validate(req.body);
 
     if (error) {
+      Logger.error("Joi validation error:", error.details[0].message);
       return res.status(400).json({ error: error.details[0].message });
     }
 
-    // Add creation timestamp and initial status/url
-    const newShowData = {
-        ...value,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        // startTime and endTime will likely be set when the show starts
-        quizzes: [] // Start with an empty quiz array
-    };
+    Logger.info(`POST /shows Joi validated value: ${JSON.stringify(value)}`);
 
+    const newShowData = {
+      ...value,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
     const newShow = await showService.createShow(newShowData);
     res.status(201).json(newShow);
@@ -76,7 +97,6 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 // PUT /shows/:showId - update show by ID
 router.put('/:showId', async (req: Request, res: Response) => {
   try {
@@ -89,8 +109,8 @@ router.put('/:showId', async (req: Request, res: Response) => {
 
     // Add updated timestamp
     const updateData = {
-        ...value,
-        updatedAt: new Date(),
+      ...value,
+      updatedAt: new Date(),
     };
 
 
@@ -135,10 +155,10 @@ router.post('/:showId/quizzes', async (req: Request, res: Response) => {
     const updatedShow = await showService.addQuizToShow(showId, quizId);
 
     if (!updatedShow) {
-        // Service should ideally return null if show or quiz not found
-        // Or have specific error handling
-        // For now, assuming if update fails, it might be show not found
-        return res.status(404).json({ error: 'Show or Quiz not found' });
+      // Service should ideally return null if show or quiz not found
+      // Or have specific error handling
+      // For now, assuming if update fails, it might be show not found
+      return res.status(404).json({ error: 'Show or Quiz not found' });
     }
 
     res.status(200).json(updatedShow);
@@ -149,22 +169,22 @@ router.post('/:showId/quizzes', async (req: Request, res: Response) => {
 
 // DELETE /shows/:showId/quizzes/:quizId - remove quiz from show
 router.delete('/:showId/quizzes/:quizId', async (req: Request, res: Response) => {
-    try {
-      const { showId, quizId } = req.params;
+  try {
+    const { showId, quizId } = req.params;
 
-      const updatedShow = await showService.removeQuizFromShow(showId, quizId);
+    const updatedShow = await showService.removeQuizFromShow(showId, quizId);
 
-      if (!updatedShow) {
-          // Service should ideally return null if show not found or quiz not in show
-          // For now, assuming if update fails, it might be show not found
-          return res.status(404).json({ error: 'Show or Quiz not found in show' });
-      }
-
-      res.status(200).json(updatedShow);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+    if (!updatedShow) {
+      // Service should ideally return null if show not found or quiz not in show
+      // For now, assuming if update fails, it might be show not found
+      return res.status(404).json({ error: 'Show or Quiz not found in show' });
     }
-  });
+
+    res.status(200).json(updatedShow);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 
 export default router;

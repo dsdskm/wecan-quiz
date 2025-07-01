@@ -114,13 +114,12 @@ router.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
 // 사용자 로그인 - accountService 사용
 router.post('/login', validate(loginSchema), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { userId, password } = req.body;
-    Logger_1.default.info("login");
+    Logger_1.default.info(`login userId=${userId},password=${password}`);
     try {
         // accountService의 loginUser 함수 호출
         const loginResult = yield accountService.loginUser({ userId, password });
         const token = jsonwebtoken_1.default.sign({ userId: loginResult.userId }, jwtSecret, { expiresIn: '1h' }); // Assuming loginResult has userId
         const result = Object.assign(Object.assign({}, loginResult), { token });
-        Logger_1.default.info(`loginResult`, loginResult);
         Logger_1.default.info(`result`, result);
         res.status(200).json(result);
     }

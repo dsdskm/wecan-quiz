@@ -5,11 +5,13 @@
     "sourceMap": true,
     "outDir": "dist",
     "esModuleInterop": true,
+    "rootDir": "src",
     "skipLibCheck": true
     ,
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
     }
-  }
+  },
+  "exclude": ["script"]
 }

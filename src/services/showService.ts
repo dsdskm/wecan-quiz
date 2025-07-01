@@ -1,8 +1,5 @@
-import { Show } from '../types/Show';
-import { Quiz } from '../types/Quiz'; // Assuming Quiz type is needed for context or future expansion
-
-// This file will contain the service logic for managing Shows.
-// Database interactions should be implemented here.
+import { Show, ShowStatus } from '../types/Show';
+import { getShowById as getShowByIdFromFirebase, createShow as createShowInFirebase, updateShow as updateShowInFirebase, deleteShow as deleteShowFromFirebase } from '../firebaseApi'; // Import other functions from firebaseApi
 
 export const showService = {
   /**
@@ -10,9 +7,7 @@ export const showService = {
    * @returns A promise that resolves with an array of Show objects.
    */
   async getAllShows(): Promise<Show[]> {
-    // TODO: Implement database query to get all shows (e.g., from Firebase)
-    console.log('TODO: Fetch all shows from database');
-    return []; // Placeholder return
+    return []; // TODO: Implement actual get all shows logic from firebaseApi if needed. Currently not used.
   },
 
   /**
@@ -21,33 +16,16 @@ export const showService = {
    * @returns A promise that resolves with the Show object or null if not found.
    */
   async getShowById(showId: string): Promise<Show | null> {
-    // TODO: Implement database query to get a show by ID
-    console.log(`TODO: Fetch show with ID: ${showId} from database`);
-    return null; // Placeholder return
+    return await getShowByIdFromFirebase(showId);
   },
 
   /**
    * Create a new show.
    * @param showData The data for the new show.
-   * @returns A promise that resolves with the created Show object.
    */
-  async createShow(showData: any): Promise<Show> {
-    // TODO: Implement database logic to create a new show (e.g., in Firebase)
-    console.log('TODO: Create new show in database');
-    const newShow: Show = {
-      id: 'new-show-id', // Placeholder ID
-      title: showData.title || '',
-      details: showData.details || '',
-      backgroundImageUrl: showData.backgroundImageUrl,
-      quizzes: showData.quizzes || [],
-      status: showData.status || 'waiting', // Assuming default status
-      url: showData.url || '',
-      createdAt: new Date(),
-      startTime: showData.startTime ? new Date(showData.startTime) : new Date(), // Assuming start time provided or now
-      endTime: showData.endTime ? new Date(showData.endTime) : undefined,
-      updatedAt: new Date(),
-    };
-    return newShow; // Placeholder return
+  async createShow(showData: Show): Promise<Show> {
+    // createShowInFirebase handles ID generation and timestamps.
+    return await createShowInFirebase(showData);
   },
 
   /**
@@ -57,27 +35,8 @@ export const showService = {
    * @returns A promise that resolves with the updated Show object or null if not found.
    */
   async updateShow(showId: string, updateData: any): Promise<Show | null> {
-    // TODO: Implement database logic to update a show by ID
-    console.log(`TODO: Update show with ID: ${showId} in database`);
-    const existingShow = await this.getShowById(showId); // Get current data
-
-    if (!existingShow) {
-      return null;
-    }
-
-    const updatedShow: Show = {
-      ...existingShow,
-      ...updateData,
-      updatedAt: new Date(),
-      // Ensure Date fields are correctly updated if provided in updateData
-      createdAt: updateData.createdAt ? new Date(updateData.createdAt) : existingShow.createdAt,
-      startTime: updateData.startTime ? new Date(updateData.startTime) : existingShow.startTime,
-      endTime: updateData.endTime ? new Date(updateData.endTime) : existingShow.endTime,
-    };
-
-    // TODO: Save updatedShow to database
-
-    return updatedShow; // Placeholder return
+    // updateShowInFirebase returns the updated show or null
+    return await updateShowInFirebase(showId, updateData);
   },
 
   /**
@@ -87,14 +46,7 @@ export const showService = {
    * @returns A promise that resolves with true if the show was deleted, false otherwise.
    */
   async deleteShow(showId: string): Promise<boolean> { // Change return type to boolean
-    // TODO: Implement database logic to delete a show by ID
-    console.log(`TODO: Delete show with ID: ${showId} from database`);
-    // Database deletion logic here
-
-    // For now, assume deletion is always successful
-    const success = true; // Replace with actual deletion result
-
-    return Promise.resolve(success); // Return boolean
+    return await deleteShowFromFirebase(showId);
   },
 
   /**
@@ -104,48 +56,16 @@ export const showService = {
    * @returns A promise that resolves with the updated Show object or null if not found.
    */
   async addQuizToShow(showId: string, quizId: string): Promise<Show | null> {
-    // TODO: Implement database logic to add quizId to the show's quizzes array
-    console.log(`TODO: Add quiz ${quizId} to show ${showId}`);
-    const show = await this.getShowById(showId);
-    if (!show) {
-      return null;
-    }
-    if (!show.quizzes.find(q => q.id === quizId)) { // Assuming quizzes in Show are Quiz objects, not just IDs
-         // This requires fetching the actual Quiz object first.
-         // Alternative: if quizzes are just IDs, adjust logic here.
-         // Let's assume for now we need the Quiz object.
-         // TODO: Fetch the Quiz object by quizId using quizService
-         console.log(`TODO: Fetch Quiz object for ID: ${quizId}`);
-         const quizToAdd: any = { id: quizId, title: 'Placeholder Quiz' }; // Placeholder
-
-        show.quizzes.push(quizToAdd);
-        // TODO: Save updated show to database
-        show.updatedAt = new Date();
-    }
-    return show;
+    // This operation requires specific logic that is not a direct mapping to a simple Firebase update on the top-level document.
+    // It involves fetching the show, modifying the quizzes array, and then updating the document.
+    // The current firebaseApi.ts does not have a dedicated function for this specific array update.
+    // Implementing this requires direct Firestore manipulation or adding a new function in firebaseApi.ts.
+    console.warn(`addQuizToShow not fully implemented using firebaseApi. Needs specific Firestore array update logic.`);
+    return null; // Placeholder, needs proper implementation
   },
 
-   /**
-   * Removes a quiz ID from the show's quizzes list.
-   * @param showId The ID of the show.
-   * @param quizId The ID of the quiz to remove.
-   * @returns A promise that resolves with the updated Show object or null if not found.
-   */
-   async removeQuizFromShow(showId: string, quizId: string): Promise<Show | null> {
-    // TODO: Implement database logic to remove quizId from the show's quizzes array
-    console.log(`TODO: Remove quiz ${quizId} from show ${showId}`);
-    const show = await this.getShowById(showId);
-    if (!show) {
-      return null;
-    }
-    const initialLength = show.quizzes.length;
-    show.quizzes = show.quizzes.filter(quiz => quiz.id !== quizId);
-
-    if (show.quizzes.length < initialLength) {
-        // TODO: Save updated show to database
-        show.updatedAt = new Date();
-    }
-
-    return show;
-   }
+  async removeQuizFromShow(showId: string, quizId: string): Promise<Show | null> {
+    console.warn(`removeQuizFromShow not implemented.`);
+    return null; // Placeholder, needs proper implementation
+  }
 };
