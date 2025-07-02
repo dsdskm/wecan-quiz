@@ -65,7 +65,8 @@ exports.getUserByIdFromDb = getUserByIdFromDb;
 const createShowInDb = (showData) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const docRef = yield showsCollection.add(showData);
-        const createdShowData = Object.assign(Object.assign({ id: docRef.id }, showData), { quizzes: showData.quizzes || [], createdAt: new Date(), updatedAt: new Date() });
+        const date = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+        const createdShowData = Object.assign(Object.assign({ id: docRef.id }, showData), { quizzes: showData.quizzes || [], createdAt: date, updatedAt: date });
         yield docRef.set(createdShowData);
         Logger_1.default.info(`Show created in Firestore with ID: ${docRef.id}`);
         return createdShowData;
@@ -157,7 +158,8 @@ exports.deleteShowFromDb = deleteShowFromDb;
 const createQuizInDb = (quizData) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const docRef = yield quizzesCollection.add(quizData);
-        const createdQuizData = Object.assign(Object.assign({ id: docRef.id }, quizData), { createdAt: new Date(), updatedAt: new Date() });
+        const date = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+        const createdQuizData = Object.assign(Object.assign({ id: docRef.id }, quizData), { createdAt: date, updatedAt: date });
         yield docRef.set(createdQuizData);
         Logger_1.default.info(`Quiz created in Firestore with ID: ${docRef.id}`);
         return createdQuizData;

@@ -9,6 +9,6 @@ export interface Quiz {
   hint?: string; // Optional
   referenceImageUrl?: string; // Optional
   referenceVideoUrl?: string; // Optional
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

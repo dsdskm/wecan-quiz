@@ -52,13 +52,14 @@ export const getUserByIdFromDb = async (userId: string): Promise<Account | null>
 export const createShowInDb = async (showData: Partial<Show>): Promise<Show> => {
   try {
     const docRef = await showsCollection.add(showData);
+    const date = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
 
     const createdShowData: Show = {
       id: docRef.id,
       ...showData as Show,
       quizzes: showData.quizzes || [],
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: date,
+      updatedAt: date
     };
 
     await docRef.set(createdShowData);
@@ -153,11 +154,13 @@ export const deleteShowFromDb = async (id: string): Promise<boolean> => {
 export const createQuizInDb = async (quizData: Partial<Quiz>): Promise<Quiz> => {
   try {
     const docRef = await quizzesCollection.add(quizData);
+    const date = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+
     const createdQuizData: Quiz = {
       id: docRef.id,
       ...quizData as Quiz,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: date,
+      updatedAt: date
     };
 
     await docRef.set(createdQuizData)

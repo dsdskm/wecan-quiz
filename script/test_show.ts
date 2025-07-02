@@ -249,12 +249,12 @@ testLogin().then(async (token) => {
 
   if (token) {
     const testShowId = "BZa1wph9Usn1TYWLkm3A"
-    // await addShow(token, sampleShow)
+    await addShow(token, sampleShow)
     // await getShows(token)
     // await getShow(token, testShowId)
     // await updateShow(token, testShowId, { title: "Updated Title" }); // Replace with a valid Show ID
     // await deleteShow(token, "YOUR_VALID_SHOW_ID"); // Replace with a valid Show ID
-    await testImageUpload(token, testShowId);
+    // await testImageUpload(token, testShowId);
     // await testImageModify(token, testShowId);
     // await testImageDelete(token, testShowId);
   }

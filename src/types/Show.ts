@@ -13,8 +13,8 @@ export interface Show {
   quizzes?: string[];
   status: ShowStatus;
   url: string;
-  createdAt?: Date; // Show 생성 시간 추가
-  startTime?: Date; // Show 시작 시간 추가
-  endTime?: Date; // Show 종료 시간
-  updatedAt?: Date; // Show 업데이트 시간 추가
+  createdAt?: string; // Show 생성 시간 추가
+  startTime?: string; // Show 시작 시간 추가
+  endTime?: string; // Show 종료 시간
+  updatedAt?: string; // Show 업데이트 시간 추가
 }
