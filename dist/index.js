@@ -9,7 +9,8 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors")); // cors 패키지 추가
 const express_rate_limit_1 = __importDefault(require("express-rate-limit")); // rateLimit 함수 import
 const accountsRoutes_1 = __importDefault(require("@/routes/accountsRoutes")); // accounts 라우터 import
-const showsRoutes_1 = __importDefault(require("@/routes/showsRoutes")); // 쇼 라우터 import
+const showRoutes_1 = __importDefault(require("@/routes/showRoutes")); // 쇼 라우터 import
+const quizRoutes_1 = __importDefault(require("@/routes/quizRoutes"));
 const Logger_1 = __importDefault(require("./utils/Logger"));
 const auth_1 = require("./middleware/auth");
 const app = (0, express_1.default)();
@@ -30,10 +31,11 @@ const rootRateLimiter = (0, express_rate_limit_1.default)({
 // Account 관련 라우터 사용
 app.use('/accounts', accountsRoutes_1.default);
 // Show 관련 라우터 사용
-app.use('/shows', auth_1.authenticateToken, showsRoutes_1.default);
+app.use('/shows', auth_1.authenticateToken, showRoutes_1.default);
+// Quiz 관련 라우터 사용
+app.use('/quiz', auth_1.authenticateToken, quizRoutes_1.default);
 const port = parseInt(process.env.PORT || '3000');
 app.listen(port, () => {
     Logger_1.default.info(`listening on port ${port}`);
-    Logger_1.default.info(`api key is ${process.env.API_KEY}`);
 });
 //# sourceMappingURL=index.js.map

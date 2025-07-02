@@ -1,5 +1,3 @@
-// src/types/Quiz.ts
-
 export interface Quiz {
   id: string;
   title:string

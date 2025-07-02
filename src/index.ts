@@ -8,7 +8,8 @@ import rateLimit from 'express-rate-limit'; // rateLimit 함수 import
 
 import accountsRouter from '@/routes/accountsRoutes'; // accounts 라우터 import
 
-import showsRouter from '@/routes/showsRoutes'; // 쇼 라우터 import
+import showsRouter from '@/routes/showRoutes'; // 쇼 라우터 import
+import quizRouter from '@/routes/quizRoutes'
 import Logger from './utils/Logger';
 import { authenticateToken } from './middleware/auth';
 
@@ -40,8 +41,10 @@ app.use('/accounts', accountsRouter);
 // Show 관련 라우터 사용
 app.use('/shows', authenticateToken, showsRouter);
 
+// Quiz 관련 라우터 사용
+app.use('/quiz', authenticateToken, quizRouter);
+
 const port = parseInt(process.env.PORT || '3000');
 app.listen(port, () => {
   Logger.info(`listening on port ${port}`);
-  Logger.info(`api key is ${process.env.API_KEY}`);
 });

@@ -1,10 +1,5 @@
 import express from 'express';
-// import { authenticate } from './accountsRoutes'; // 이 줄은 더 이상 필요 없음
-
 import { authenticateToken } from '@/middleware/auth'; // 인증 미들웨어 import
-import multer from 'multer'; // multer 미들웨어 import
-
-// Show 컨트롤러 함수 import
 import {
   createShow,
   getAllShows,
@@ -13,10 +8,10 @@ import {
   deleteShow,
   uploadShowBackgroundImage,
   deleteShowBackgroundImage,
-} from '@/controllers/showsController';
+} from '@/controllers/showController';
+import { upload } from '@/utils/storage';
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() }); // 메모리 스토리지 사용
 
 // Show 생성 라우트 (배경 이미지 없이 Show 데이터만 생성)
 router.post('/', authenticateToken, createShow); // upload.single('backgroundImage') 미들웨어 제거
@@ -34,7 +29,7 @@ router.put('/:id', authenticateToken, updateShow); // upload.single('backgroundI
 router.delete('/:id', authenticateToken, deleteShow); // 핸들러를 컨트롤러 함수로 교체
 
 // Show 배경 이미지 업로드 라우트
-router.post('/:showId/background-image', authenticateToken, upload.single('backgroundImage'), uploadShowBackgroundImage); // uploadShowBackgroundImage 컨트롤러 함수 사용
+router.post('/:showId/background-image', authenticateToken, upload.single('backgroundImage'), uploadShowBackgroundImage);
 
 // Show 배경 이미지 삭제 라우트
 router.delete('/:showId/background-image', authenticateToken, deleteShowBackgroundImage); // deleteShowBackgroundImage 컨트롤러 함수 사용

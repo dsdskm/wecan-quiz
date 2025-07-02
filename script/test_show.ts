@@ -1,34 +1,11 @@
 import { Show, ShowStatus } from "../src/types/Show";
+import { testLogin } from "./test_account";
+import { API_URL } from "./test_constant";
 
-const API_URL = "http://localhost:3000"
-async function loginAccount(userId, password) {
-  const url = API_URL + '/accounts/login';
-  const body = JSON.stringify({
-    userId: userId,
-    password: password,
-  });
-  console.log('loginAccount body', body);
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: body,
-    });
-    console.log(`response`, response.status)
-    const data = await response.json();
-    console.log('API Response:', data);
-    return data
-  } catch (error) {
-    console.error('Error calling Login API:', error.message);
-  }
-}
-
-async function addShow(token: string, data: Show) {
+const addShow = async (token: string, data: Show) => {
   const url = API_URL + '/shows';
   const body = JSON.stringify(data);
-  console.log('addShow body', body);
+ console.log('addShow body', body);
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -42,14 +19,12 @@ async function addShow(token: string, data: Show) {
     const result = await response.json();
     console.log('addShow API Response:', result);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error calling addShow API:', error.message);
   }
 }
-
-async function getShows(token: string): Promise<Show[] | undefined> {
+const getShows = async (token: string): Promise<Show[] | undefined> => {
   const url = API_URL + '/shows';
-  console.log('Fetching shows from:', url);
   try {
     const response = await fetch(url, {
       headers: {
@@ -67,11 +42,9 @@ async function getShows(token: string): Promise<Show[] | undefined> {
   }
 }
 
-async function updateShow(token: string, id: string, updateData: Partial<Show>): Promise<Show | undefined> {
+const updateShow = async (token: string, id: string, updateData: Partial<Show>): Promise<Show | undefined> => {
   const url = `${API_URL}/shows/${id}`;
   const body = JSON.stringify(updateData);
-  console.log(`Updating show with ID ${id} at:`, url);
-  console.log('Update data:', body);
   try {
     const response = await fetch(url, {
       method: 'PUT',
@@ -92,9 +65,8 @@ async function updateShow(token: string, id: string, updateData: Partial<Show>):
   }
 }
 
-async function deleteShow(token: string, id: string): Promise<boolean> {
+const deleteShow = async (token: string, id: string): Promise<boolean> => {
   const url = `${API_URL}/shows/${id}`;
-  console.log(`Deleting show with ID ${id} from:`, url);
   try {
     const response = await fetch(url, {
       method: 'DELETE',
@@ -108,9 +80,8 @@ async function deleteShow(token: string, id: string): Promise<boolean> {
   }
 }
 
-async function getShow(token: string, id: string): Promise<Show | undefined> {
+const getShow = async (token: string, id: string): Promise<Show | undefined> => {
   const url = `${API_URL}/shows/${id}`;
-  console.log(`Fetching show with ID ${id} from:`, url);
   try {
     const response = await fetch(url, {
       headers: {
@@ -128,9 +99,8 @@ async function getShow(token: string, id: string): Promise<Show | undefined> {
   }
 }
 
-async function testImageUpload(token: string, showId: string) {
+const testImageUpload = async (token: string, showId: string) => {
   const url = `${API_URL}/shows/${showId}/background-image`;
-  console.log(`Testing image upload for Show ID ${showId} to:`, url);
 
   // Create a dummy image buffer for testing
   // This is a very basic placeholder. In a real test, you might read a file.
@@ -170,8 +140,7 @@ async function testImageUpload(token: string, showId: string) {
 }
 
 
-async function testImageDelete(token: string, showId: string) {
-  console.log(`\n--- Testing Image Deletion for Show ID: ${showId} ---`);
+const testImageDelete = async (token: string, showId: string) => {
   try {
     // 이미지 삭제 API 엔드포인트 URL
     const deleteUrl = `${API_URL}/shows/${showId}/background-image`;
@@ -203,8 +172,7 @@ async function testImageDelete(token: string, showId: string) {
 }
 
 
-async function testImageModify(token: string, showId: string) {
-  console.log(`\n--- Testing Image Modification for Show ID: ${showId} ---`);
+const testImageModify = async (token: string, showId: string) => {
   try {
     // 새로운 더미 이미지 데이터 생성 (다른 파일처럼 보이도록)
     const dummyImageData2 = new Uint8Array([
@@ -261,9 +229,7 @@ async function testImageModify(token: string, showId: string) {
 
 
 
-loginAccount("dsdskm@gmail.com", "123456").then(async (res) => {
-  const token = res.token
-
+testLogin().then(async (token) => {
   // Generate random values for the sample show
   const randomString = (length: number) => Math.random().toString(36).substring(2, 2 + length);
   const statuses = Object.values(ShowStatus);
@@ -283,12 +249,12 @@ loginAccount("dsdskm@gmail.com", "123456").then(async (res) => {
 
   if (token) {
     const testShowId = "BZa1wph9Usn1TYWLkm3A"
-    await addShow(token,sampleShow)
+    // await addShow(token, sampleShow)
     // await getShows(token)
     // await getShow(token, testShowId)
     // await updateShow(token, testShowId, { title: "Updated Title" }); // Replace with a valid Show ID
     // await deleteShow(token, "YOUR_VALID_SHOW_ID"); // Replace with a valid Show ID
-    // await testImageUpload(token, testShowId);
+    await testImageUpload(token, testShowId);
     // await testImageModify(token, testShowId);
     // await testImageDelete(token, testShowId);
   }
