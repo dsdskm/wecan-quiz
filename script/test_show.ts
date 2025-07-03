@@ -243,8 +243,10 @@ testLogin().then(async (token) => {
     quizzes: [],
     status: randomStatus,
     url: `https://example.com/shows/${randomId}`,
-    // createdAt and updatedAt will be set by the server
-    // id will be set by the server
+    createdAt: "",
+    startTime: "",
+    endTime: "",
+    updatedAt: ""
   };
 
   if (token) {
